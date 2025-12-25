@@ -13,22 +13,23 @@ export default abstract class BaseFilter<T extends ObjectLiteral> {
   @Type(() => Number)
   @IsInt()
   @Min(0)
-  skip?: number;
+  skip?: number = 0;
 
   @IsOptional()
   @Type(() => Number)
   @IsInt()
   @Min(1)
-  limit?: number;
+  limit?: number = 10;
 
-  abstract createWhere(queryBuilder: SelectQueryBuilder<T>, alias: string): void;
+  abstract createWhere(
+    queryBuilder: SelectQueryBuilder<T>,
+    alias: string,
+  ): void;
 
   paginate(queryBuilder: SelectQueryBuilder<T>) {
-    if (this.skip) {
-      queryBuilder.skip(this.skip);
-    }
-    if (this.limit) {
-      queryBuilder.take(this.limit);
-    }
+    const skip = this.skip ?? 0;
+    const limit = this.limit ?? 20;
+
+    queryBuilder.skip(skip).take(limit);
   }
 }

@@ -21,6 +21,8 @@ export default class OrdersController {
 
   @Patch()
   async batchUpdate(@Body() orders: BatchUpdateOrderDTO) {
-    await this.ordersService.batchUpdate(orders.orderIds, { status: orders.status });
+    await this.ordersService.batchUpdate(orders.orderIds, {
+      status: orders.status,
+    });
   }
 }

@@ -1,8 +1,3 @@
-version: "3.7"
-
-volumes:
-  pg_data_teceo:
-
 services:
   teceo-challenge-postgres:
     container_name: teceo-challenge-postgres
@@ -10,15 +5,34 @@ services:
     image: postgres:17.5-alpine
     shm_size: 1g
     environment:
-      POSTGRES_DB: "teceo"
-      POSTGRES_USER: "teceo"
-      POSTGRES_PASSWORD: "teceo"
+      POSTGRES_DB: ${DB_DATABASE}
+      POSTGRES_USER: ${DB_USERNAME}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
     ports:
-      - 5432:5432
+      - ${DB_PORT}:5432
     volumes:
-      - pg_data_teceo:/var/lib/postgresql/data
+      - ${POSGRESDB_VOLUME_PATH}/.pg_data_teceo:/var/lib/postgresql/data
     networks:
       - teceo-challenge
 
+  teceo-challenge-postgres-gui:
+    image: dpage/pgadmin4:8.2
+    container_name: teceo-challenge-postgres-gui
+    restart: always
+    environment:
+      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_DEFAULT_EMAIL}
+      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_DEFAULT_PASSWORD}
+      PGADMIN_LISTEN_PORT: ${PGADMIN_LISTEN_PORT}
+    ports:
+      - ${PGADMIN_LISTEN_PORT}:${PGADMIN_LISTEN_PORT}
+    volumes:
+      - pg_data_teceo:/var/lib/pgadmin
+    networks:
+      - teceo-challenge
+      
+
 networks:
   teceo-challenge:
+
+volumes:
+  pg_data_teceo:

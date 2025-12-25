@@ -17,7 +17,9 @@ export default class ProductColorsService {
     return this.repository.createQueryBuilder('productColor');
   }
 
-  async list(filter: ListProductColorsFilter): Promise<Page<ListProductColorsDTO>> {
+  async list(
+    filter: ListProductColorsFilter,
+  ): Promise<Page<ListProductColorsDTO>> {
     const queryBuilder = this.createQueryBuilder()
       .leftJoinAndSelect('productColor.product', 'product')
       .orderBy('product.name', 'ASC')
@@ -27,8 +29,11 @@ export default class ProductColorsService {
     filter.createWhere(queryBuilder);
 
     const [productColors, total] = await queryBuilder.getManyAndCount();
-    const productColorsWithColors = await this.getColorsForProductColors(productColors);
-    const productColorsWithPrices = await this.getPricesForProductColors(productColorsWithColors);
+    const productColorsWithColors =
+      await this.getColorsForProductColors(productColors);
+    const productColorsWithPrices = await this.getPricesForProductColors(
+      productColorsWithColors,
+    );
 
     return Page.of(productColorsWithPrices, total);
   }
@@ -41,7 +46,9 @@ export default class ProductColorsService {
         .orderBy('lower(color.name)', 'ASC')
         .getOneOrFail();
 
-      const correctProductColor = productColors.find((pc) => pc.id === productColor.id);
+      const correctProductColor = productColors.find(
+        (pc) => pc.id === productColor.id,
+      );
 
       if (correctProductColor) {
         correctProductColor.color = productColorWithColor.color;
@@ -51,7 +58,9 @@ export default class ProductColorsService {
     return productColors;
   }
 
-  async getPricesForProductColors(productColors: ProductColor[]): Promise<ListProductColorsDTO[]> {
+  async getPricesForProductColors(
+    productColors: ProductColor[],
+  ): Promise<ListProductColorsDTO[]> {
     const productColorsWithPrices: ListProductColorsDTO[] = [];
 
     for (const productColor of productColors) {
@@ -60,7 +69,9 @@ export default class ProductColorsService {
         .where('productColor.id = :id', { id: productColor.id })
         .getMany();
 
-      const skuPrices = productColorWithPrices.flatMap((pc) => pc.skus.map((sku) => sku.price));
+      const skuPrices = productColorWithPrices.flatMap((pc) =>
+        pc.skus.map((sku) => sku.price),
+      );
 
       productColorsWithPrices.push({
         ...productColor,

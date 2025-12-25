@@ -21,51 +21,44 @@ export default class OrdersService {
   }
 
   async list(filter: ListOrdersFilter): Promise<Page<ListOrdersDTO>> {
+    const countQueryBuilder = this.createQueryBuilder('order').leftJoin(
+      'order.customer',
+      'customer',
+    );
+
+    filter.createWhere(countQueryBuilder, 'order');
+
+    const [, count] = await countQueryBuilder.getManyAndCount();
+
     const queryBuilder = this.createQueryBuilder('order')
       .leftJoinAndSelect('order.customer', 'customer')
+      .leftJoinAndSelect('order.orderItems', 'orderItem')
+      .leftJoinAndSelect('orderItem.sku', 'sku')
+      .leftJoinAndSelect('sku.productColor', 'productColor')
       .orderBy('order.id', 'ASC');
 
-    filter.createWhere(queryBuilder);
+    filter.createWhere(queryBuilder, 'order');
     filter.paginate(queryBuilder);
 
-    const [orders, count] = await queryBuilder.getManyAndCount();
-    const ordersWithTotals = await this.getOrdersWithTotals(orders);
+    const orders = await queryBuilder.getMany();
+    const ordersWithTotals = this.getOrdersWithTotals(orders);
 
     return Page.of(ordersWithTotals, count);
   }
 
-  private async getOrdersWithTotals(orders: Order[]): Promise<ListOrdersDTO[]> {
-    const ordersWithTotals: ListOrdersDTO[] = [];
-
-    for (const order of orders) {
-      const orderItems = await this.orderItemsService
-        .createQueryBuilder('orderItem')
-        .leftJoinAndSelect('orderItem.sku', 'sku')
-        .leftJoinAndSelect('sku.productColor', 'productColor')
-        .where('orderItem.order.id = :orderId', { orderId: order.id })
-        .getMany();
-
+  private getOrdersWithTotals(orders: Order[]): ListOrdersDTO[] {
+    return orders.map((order) => {
       let totalValue = 0;
-      orderItems.forEach((orderItem) => {
-        totalValue += orderItem.sku.price * orderItem.quantity;
-      });
-
       let totalQuantity = 0;
-      orderItems.forEach((orderItem) => {
+      const uniqueProductColors = new Set<string>();
+
+      order.orderItems.forEach((orderItem) => {
+        totalValue += orderItem.sku.price * orderItem.quantity;
         totalQuantity += Number(orderItem.quantity);
+        uniqueProductColors.add(orderItem.sku.productColor.id);
       });
 
-      const orderProductColorIds: string[] = [];
-      orderItems.forEach((orderItem) => {
-        if (orderItem.sku) {
-          const productColorId = orderItem.sku.productColor.id;
-          if (!orderProductColorIds.includes(productColorId)) {
-            orderProductColorIds.push(productColorId);
-          }
-        }
-      });
-      const totalProductColors = orderProductColorIds.length;
-
+      const totalProductColors = uniqueProductColors.size;
       const averageValuePerUnit = totalQuantity
         ? parseFloat((totalValue / totalQuantity).toFixed(2))
         : 0;
@@ -73,7 +66,7 @@ export default class OrdersService {
         ? parseFloat((totalValue / totalProductColors).toFixed(2))
         : 0;
 
-      ordersWithTotals.push({
+      return {
         id: order.id,
         status: order.status,
         customer: order.customer,
@@ -82,10 +75,8 @@ export default class OrdersService {
         totalProductColors,
         averageValuePerUnit,
         averageValuePerProductColor,
-      });
-    }
-
-    return ordersWithTotals;
+      };
+    });
   }
 
   async update(orderId: string, order: Partial<Order>) {

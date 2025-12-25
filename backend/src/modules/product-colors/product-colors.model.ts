@@ -14,9 +14,6 @@ export default class ProductColor extends BaseModel {
   @JoinColumn({ name: 'color_id', referencedColumnName: 'id' })
   color: Color;
 
-  @OneToMany(
-    () => Sku,
-    (sku) => sku.productColor,
-  )
+  @OneToMany(() => Sku, (sku) => sku.productColor)
   skus: Sku[];
 }

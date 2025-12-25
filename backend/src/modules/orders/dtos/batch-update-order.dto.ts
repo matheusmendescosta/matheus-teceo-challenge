@@ -1,4 +1,10 @@
-import { ArrayMinSize, IsArray, IsEnum, IsOptional, IsUUID } from 'class-validator';
+import {
+  ArrayMinSize,
+  IsArray,
+  IsEnum,
+  IsOptional,
+  IsUUID,
+} from 'class-validator';
 import { OrderStatus } from '../enums/order-status.enum';
 
 export default class BatchUpdateOrderDTO {

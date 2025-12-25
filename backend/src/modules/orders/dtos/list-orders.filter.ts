@@ -8,10 +8,10 @@ export default class ListOrdersFilter extends BaseFilter<Order> {
   @IsString()
   customerNameOrEmail?: string;
 
-  createWhere(queryBuilder: SelectQueryBuilder<Order>): void {
+  createWhere(queryBuilder: SelectQueryBuilder<Order>, alias: string): void {
     if (this.customerNameOrEmail) {
       queryBuilder.andWhere(
-        '(customer.name ILIKE :customerNameOrEmail OR customer.email ILIKE :customerNameOrEmail)',
+        `${alias}.customer.name ILIKE :customerNameOrEmail OR ${alias}.customer.email ILIKE :customerNameOrEmail`,
         { customerNameOrEmail: `%${this.customerNameOrEmail}%` },
       );
     }

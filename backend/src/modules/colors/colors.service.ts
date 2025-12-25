@@ -16,7 +16,11 @@ export default class ColorsService {
   }
 
   list(filter: ListColorsFilter) {
-    const colors = this.createQueryBuilder('color').getMany();
-    return colors;
+    const queryBuilder = this.createQueryBuilder('color');
+
+    filter.createWhere(queryBuilder, 'color');
+    filter.paginate(queryBuilder);
+
+    return queryBuilder.getMany();
   }
 }
