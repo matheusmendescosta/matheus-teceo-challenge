@@ -29,10 +29,23 @@ services:
       - pg_data_teceo:/var/lib/pgadmin
     networks:
       - teceo-challenge
-      
+
+  teceo-challenge-redis:
+    image: redis:7.2-alpine
+    container_name: teceo-challenge-redis
+    hostname: teceo-challenge-redis
+    restart: always
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis_data_teceo:/data
+    networks:
+      - teceo-challenge
 
 networks:
   teceo-challenge:
 
 volumes:
   pg_data_teceo:
+  redis_data_teceo:

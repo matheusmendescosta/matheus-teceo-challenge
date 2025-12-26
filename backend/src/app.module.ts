@@ -11,12 +11,14 @@ import ProductColorsModule from './modules/product-colors/product-colors.module'
 import ProductSizesModule from './modules/product-sizes/product-sizes.module';
 import ProductsModule from './modules/products/products.module';
 import SkusModule from './modules/skus/skus.module';
+import { CacheModuleConfig } from './commons/cache/cache.module';
 
 @Module({
   imports: [
     ConfigModule.forRoot({
       isGlobal: true,
     }),
+    CacheModuleConfig,
     TypeOrmModule.forRootAsync({
       imports: [
         ConfigModule,
@@ -40,6 +42,8 @@ import SkusModule from './modules/skus/skus.module';
         autoLoadEntities: true,
         synchronize: false,
         migrationsRun: false,
+        logging: ['query', 'error'],
+        logger: 'advanced-console',
       }),
     }),
   ],

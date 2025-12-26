@@ -8,12 +8,20 @@ export default class ListOrdersFilter extends BaseFilter<Order> {
   @IsString()
   customerNameOrEmail?: string;
 
-  createWhere(queryBuilder: SelectQueryBuilder<Order>, alias: string): void {
+  @IsOptional()
+  @IsString()
+  status?: string;
+
+  createWhere(queryBuilder: SelectQueryBuilder<Order>): void {
     if (this.customerNameOrEmail) {
       queryBuilder.andWhere(
-        `${alias}.customer.name ILIKE :customerNameOrEmail OR ${alias}.customer.email ILIKE :customerNameOrEmail`,
+        `customer.name ILIKE :customerNameOrEmail OR customer.email ILIKE :customerNameOrEmail`,
         { customerNameOrEmail: `%${this.customerNameOrEmail}%` },
       );
+    }
+
+    if (this.status) {
+      queryBuilder.andWhere('order.status = :status', { status: this.status });
     }
   }
 }
