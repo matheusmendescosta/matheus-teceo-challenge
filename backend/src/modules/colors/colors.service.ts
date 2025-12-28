@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, SelectQueryBuilder } from 'typeorm';
+import Page from '../../../commons/dtos/page.dto';
 import Color from './colors.model';
 import ListColorsFilter from './dtos/list-colors.filter';
 
@@ -15,12 +16,14 @@ export default class ColorsService {
     return this.repository.createQueryBuilder(alias);
   }
 
-  list(filter: ListColorsFilter) {
+  async list(filter: ListColorsFilter): Promise<Page<Color>> {
     const queryBuilder = this.createQueryBuilder('color');
 
     filter.createWhere(queryBuilder, 'color');
     filter.paginate(queryBuilder);
 
-    return queryBuilder.getMany();
+    const [colors, total] = await queryBuilder.getManyAndCount();
+
+    return Page.of(colors, total);
   }
 }

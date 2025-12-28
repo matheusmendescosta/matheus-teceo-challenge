@@ -15,8 +15,12 @@ export default class ProductsService {
     return this.repository.createQueryBuilder(alias);
   }
 
-  list(filter: ListProductsFilter) {
-    const products = this.createQueryBuilder('product').getMany();
-    return products;
+  async list(filter: ListProductsFilter): Promise<Product[]> {
+    const queryBuilder = this.createQueryBuilder('product');
+
+    filter.paginate(queryBuilder);
+    filter.createWhere(queryBuilder);
+
+    return queryBuilder.getMany();
   }
 }

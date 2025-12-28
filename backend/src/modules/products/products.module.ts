@@ -10,6 +10,6 @@ const ProductsOrmModule = TypeOrmModule.forFeature([Product]);
   controllers: [ProductsController],
   imports: [ProductsOrmModule],
   providers: [ProductsService],
-  exports: [],
+  exports: [ProductsService],
 })
 export default class ProductsModule {}

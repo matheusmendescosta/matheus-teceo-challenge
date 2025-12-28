@@ -6,6 +6,7 @@ import ProductColor from '../product-colors/product-colors.model';
 @Entity('skus')
 @Index(['product_color_id'])
 @Index(['product_size_id'])
+@Index(['product_color_id', 'price'])
 export default class Sku extends BaseModel {
   @ManyToOne(() => ProductColor)
   @JoinColumn({ name: 'product_color_id', referencedColumnName: 'id' })

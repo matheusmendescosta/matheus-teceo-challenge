@@ -10,6 +10,6 @@ const SkusOrmModule = TypeOrmModule.forFeature([Sku]);
   controllers: [SkusController],
   imports: [SkusOrmModule],
   providers: [SkusService],
-  exports: [],
+  exports: [SkusService],
 })
 export default class SkusModule {}

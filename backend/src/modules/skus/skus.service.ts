@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, SelectQueryBuilder } from 'typeorm';
+import Page from '../../../commons/dtos/page.dto';
 import ListSkusFilter from './dtos/list-skus.filter';
 import Sku from './skus.model';
 
@@ -15,8 +16,14 @@ export default class SkusService {
     return this.repository.createQueryBuilder(alias);
   }
 
-  list(filter: ListSkusFilter) {
-    const skus = this.createQueryBuilder('sku').getMany();
-    return skus;
+  async list(filter: ListSkusFilter): Promise<Page<Sku>> {
+    const queryBuilder = this.createQueryBuilder('sku');
+
+    filter.paginate(queryBuilder);
+    filter.createWhere(queryBuilder);
+
+    const [skus, total] = await queryBuilder.getManyAndCount();
+
+    return Page.of(skus, total);
   }
 }

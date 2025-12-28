@@ -10,6 +10,6 @@ const ColorsOrmModule = TypeOrmModule.forFeature([Color]);
   controllers: [ColorsController],
   imports: [ColorsOrmModule],
   providers: [ColorsService],
-  exports: [],
+  exports: [ColorsService],
 })
 export default class ColorsModule {}
