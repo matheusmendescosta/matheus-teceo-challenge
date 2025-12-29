@@ -23,38 +23,25 @@ export default class OrdersService {
   }
 
   async list(filter: ListOrdersFilter): Promise<Page<ListOrdersDTO>> {
-    // ===============================================
-    // CACHE: Tentar buscar do Redis
-    // ===============================================
     const cacheKey = this.cacheService.generateCacheKey('orders:list', {
       skip: filter.skip,
       limit: filter.limit,
       customerNameOrEmail: filter.customerNameOrEmail,
-      status: filter.status,
     });
 
     const cached = await this.cacheService.get<Page<ListOrdersDTO>>(cacheKey);
     if (cached) {
-      console.log('✅ Cache HIT:', cacheKey);
+      console.log('Em Cache:', cacheKey);
       return cached;
     }
-    console.log('❌ Cache MISS:', cacheKey);
+    console.log('Sem Cache:', cacheKey);
 
-    // ===============================================
-    // Query 1: Contar total (leve - sem items)
-    // ===============================================
-    const countQueryBuilder = this.createQueryBuilder('order').leftJoin(
-      'order.customer', // ← USA ÍNDICE: idx_orders_customer_id
-      'customer',
-    );
+    const countQueryBuilder = this.createQueryBuilder('order');
     filter.createWhere(countQueryBuilder);
-    const [, count] = await countQueryBuilder.getManyAndCount();
+    const count = await countQueryBuilder.distinct(true).getCount();
 
-    // ===============================================
-    // Query 2: Trazer orders paginados com customer
-    // ===============================================
     const queryBuilder = this.createQueryBuilder('order')
-      .leftJoinAndSelect('order.customer', 'customer') // ← USA ÍNDICE: idx_orders_customer_id
+      .leftJoinAndSelect('order.customer', 'customer')
       .orderBy('order.id', 'ASC');
 
     filter.createWhere(queryBuilder);
@@ -63,20 +50,16 @@ export default class OrdersService {
     const orders = await queryBuilder.getMany();
     const orderIds = orders.map((o) => o.id);
 
-    // ===============================================
-    // Query 3: Trazer items dos orders selecionados
-    // ===============================================
     if (orderIds.length > 0) {
       const orderItems = await this.orderItemsService
         .createQueryBuilder('orderItem')
-        .leftJoinAndSelect('orderItem.sku', 'sku') // ← USA ÍNDICE: idx_order_items_sku_id
-        .leftJoinAndSelect('sku.productColor', 'productColor') // ← USA ÍNDICE: idx_skus_product_color_id
-        .where('orderItem.order_id IN (:...orderIds)', { orderIds }) // ← USA ÍNDICE: idx_order_items_order_id
+        .leftJoinAndSelect('orderItem.sku', 'sku')
+        .leftJoinAndSelect('sku.productColor', 'productColor')
+        .where('orderItem.order_id IN (:...orderIds)', { orderIds })
         .orderBy('orderItem.order_id', 'ASC')
         .addOrderBy('orderItem.id', 'ASC')
         .getMany();
 
-      // Agrupar items por order (com tipagem correta)
       const itemsByOrderId = new Map<string, typeof orderItems>();
       orderItems.forEach((item) => {
         const orderId = item.order_id;
@@ -86,7 +69,6 @@ export default class OrdersService {
         itemsByOrderId.get(orderId)!.push(item);
       });
 
-      // Associar items aos orders
       orders.forEach((order) => {
         order.orderItems = itemsByOrderId.get(order.id) || [];
       });
@@ -99,11 +81,8 @@ export default class OrdersService {
     const ordersWithTotals = this.getOrdersWithTotals(orders);
     const result = Page.of(ordersWithTotals, count);
 
-    // ===============================================
-    // CACHE: Salvar resultado no Redis (5 minutos)
-    // ===============================================
     await this.cacheService.set(cacheKey, result, 300);
-    console.log('💾 Resultado salvo em cache');
+    console.log('Resultado salvo em cache');
 
     return result;
   }
@@ -143,21 +122,21 @@ export default class OrdersService {
 
   async update(orderId: string, order: Partial<Order>) {
     await this.repository.update(orderId, order);
-    // Invalidar cache de listas quando atualiza um order
+
     await this.cacheService.invalidatePattern('orders:list:*');
   }
 
   async create(order: Partial<Order>) {
     const newOrder = this.repository.create(order);
     const result = await this.repository.save(newOrder);
-    // Invalidar cache de listas quando cria um novo order
+
     await this.cacheService.invalidatePattern('orders:list:*');
     return result;
   }
 
   async delete(orderId: string) {
     await this.repository.delete(orderId);
-    // Invalidar cache de listas quando deleta um order
+
     await this.cacheService.invalidatePattern('orders:list:*');
   }
 

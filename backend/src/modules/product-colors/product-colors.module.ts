@@ -6,12 +6,19 @@ import ProductColorsService from './product-colors.service';
 import SkusModule from '../skus/skus.module';
 import ProductsModule from '../products/products.module';
 import ColorsModule from '../colors/colors.module';
+import { CacheModuleConfig } from 'src/commons/cache/cache.module';
 
 const ProductColorsOrmModule = TypeOrmModule.forFeature([ProductColor]);
 
 @Module({
   controllers: [ProductColorsController],
-  imports: [ProductColorsOrmModule, SkusModule, ProductsModule, ColorsModule],
+  imports: [
+    ProductColorsOrmModule,
+    SkusModule,
+    ProductsModule,
+    ColorsModule,
+    CacheModuleConfig,
+  ],
   providers: [ProductColorsService],
   exports: [],
 })

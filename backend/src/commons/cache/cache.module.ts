@@ -22,7 +22,7 @@ import { CacheService } from './cache.service';
           // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment
           store: 'redis' as unknown as any,
           client: redisClient,
-          ttl: 300, // 5 minutos padrão
+          ttl: 300,
         };
       },
     }),

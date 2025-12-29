@@ -1,11 +1,12 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
+import { CacheService } from 'src/commons/cache/cache.service';
 import { Repository, SelectQueryBuilder } from 'typeorm';
 import Page from '../../../commons/dtos/page.dto';
+import SkusService from '../skus/skus.service';
 import { ListProductColorsDTO } from './dtos/list-product-colors.dto';
 import ListProductColorsFilter from './dtos/list-product-colors.filter';
 import ProductColor from './product-colors.model';
-import SkusService from '../skus/skus.service';
 
 @Injectable()
 export default class ProductColorsService {
@@ -13,6 +14,7 @@ export default class ProductColorsService {
     @InjectRepository(ProductColor)
     private readonly repository: Repository<ProductColor>,
     private readonly skusService: SkusService,
+    private readonly cacheService: CacheService,
   ) {}
 
   createQueryBuilder(alias?: string): SelectQueryBuilder<ProductColor> {
@@ -22,33 +24,50 @@ export default class ProductColorsService {
   async list(
     filter: ListProductColorsFilter,
   ): Promise<Page<ListProductColorsDTO>> {
-    // ===============================================
-    // Query 1: Contar total (leve - sem joins, apenas COUNT)
-    // ===============================================
+    const cacheKey = this.cacheService.generateCacheKey('product-colors:list', {
+      skip: filter.skip,
+      limit: filter.limit,
+      productCodeOrName: filter.productCodeOrName,
+    });
+
+    const cachedResult =
+      await this.cacheService.get<Page<ListProductColorsDTO>>(cacheKey);
+    if (cachedResult) {
+      console.log('Ok Cache:', cacheKey);
+      return cachedResult;
+    }
+    console.log('Sem cache:', cacheKey);
+
     const countQueryBuilder = this.createQueryBuilder('productColor');
     filter.createWhere(countQueryBuilder);
-    const total = await countQueryBuilder.getCount();
+    const total = await countQueryBuilder.distinct(true).getCount();
 
-    // ===============================================
-    // Query 2: Trazer product colors paginados
-    // ===============================================
-    const queryBuilder = this.createQueryBuilder('productColor')
-      .leftJoinAndSelect('productColor.product', 'product')
-      .leftJoinAndSelect('productColor.color', 'color')
-      .orderBy('product.name', 'ASC')
-      .addOrderBy('productColor.id', 'ASC');
+    const idsQueryBuilder = this.createQueryBuilder('productColor')
+      .select(['productColor.id'])
+      .orderBy('productColor.id', 'ASC');
 
-    filter.paginate(queryBuilder);
-    filter.createWhere(queryBuilder);
+    filter.paginate(idsQueryBuilder);
+    filter.createWhere(idsQueryBuilder);
 
-    const productColors = await queryBuilder.getMany();
-    const productColorIds = productColors.map((pc) => pc.id);
+    const idsResult = await idsQueryBuilder.getMany();
+    const productColorIds = idsResult.map((pc) => pc.id);
 
-    // ===============================================
-    // Query 3: Trazer skus dos product colors
-    // ===============================================
+    let productColors: ProductColor[] = [];
+    let skus: any[] = [];
+
     if (productColorIds.length > 0) {
-      const skus = await this.skusService
+      const queryBuilder = this.createQueryBuilder('productColor')
+        .leftJoinAndSelect('productColor.product', 'product')
+        .leftJoinAndSelect('productColor.color', 'color')
+        .where('productColor.id IN (:...productColorIds)', {
+          productColorIds,
+        })
+        .orderBy('product.name', 'ASC')
+        .addOrderBy('productColor.id', 'ASC');
+
+      productColors = await queryBuilder.getMany();
+
+      skus = await this.skusService
         .createQueryBuilder('sku')
         .select(['sku.id', 'sku.product_color_id', 'sku.price'])
         .where('sku.product_color_id IN (:...productColorIds)', {
@@ -57,31 +76,25 @@ export default class ProductColorsService {
         .orderBy('sku.product_color_id', 'ASC')
         .addOrderBy('sku.price', 'ASC')
         .getMany();
-
-      // Agrupar skus por product_color_id em memória (muito rápido!)
-      const minPriceByProductColorId = new Map<string, number>();
-
-      for (const sku of skus) {
-        const productColorId = sku.product_color_id;
-
-        // Como está ordenado por price ASC, o primeiro é o menor
-        if (!minPriceByProductColorId.has(productColorId)) {
-          minPriceByProductColorId.set(productColorId, sku.price);
-        }
-      }
-
-      // Associar preços aos product colors
-      productColors.forEach((productColor) => {
-        const price = minPriceByProductColorId.get(productColor.id) || 0;
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-        (productColor as any).price = price;
-      });
-    } else {
-      productColors.forEach((productColor) => {
-        // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
-        (productColor as any).price = 0;
-      });
     }
+
+    const minPriceByProductColorId = new Map<string, number>();
+
+    for (const sku of skus) {
+      //eslint-disable-next-line
+      const productColorId = sku.product_color_id;
+      if (!minPriceByProductColorId.has(productColorId)) {
+        //eslint-disable-next-line
+        minPriceByProductColorId.set(productColorId, sku.price);
+      }
+    }
+
+    // Associar preços aos product colors
+    productColors.forEach((productColor) => {
+      const price = minPriceByProductColorId.get(productColor.id) || 0;
+      // eslint-disable-next-line @typescript-eslint/no-unsafe-member-access
+      (productColor as any).price = price;
+    });
 
     const productColorsWithDetails = productColors.map((pc) => ({
       id: pc.id,
@@ -89,10 +102,14 @@ export default class ProductColorsService {
       updatedAt: pc.updatedAt,
       product: pc.product,
       color: pc.color,
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-member-access
+      // eslint-disable-next-line
       price: (pc as any).price,
     })) as ListProductColorsDTO[];
 
-    return Page.of(productColorsWithDetails, total);
+    const result = Page.of(productColorsWithDetails, total);
+
+    await this.cacheService.set(cacheKey, result, 300);
+
+    return result;
   }
 }
