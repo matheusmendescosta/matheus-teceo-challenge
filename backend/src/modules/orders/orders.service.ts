@@ -36,9 +36,12 @@ export default class OrdersService {
     }
     console.log('Sem Cache:', cacheKey);
 
-    const countQueryBuilder = this.createQueryBuilder('order');
+    const countQueryBuilder = this.createQueryBuilder('order').leftJoin(
+      'order.customer',
+      'customer',
+    );
     filter.createWhere(countQueryBuilder);
-    const count = await countQueryBuilder.distinct(true).getCount();
+    const count = await countQueryBuilder.getCount();
 
     const queryBuilder = this.createQueryBuilder('order')
       .leftJoinAndSelect('order.customer', 'customer')
